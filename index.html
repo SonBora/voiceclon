@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusVoice AI — Bilingual Voice Cloning & TTS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030712;
+            --card-bg: rgba(17, 24, 39, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent: #a855f7;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 640px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+
+        .header { text-align: center; margin-bottom: 32px; }
+        .badge {
+            display: inline-block; padding: 6px 14px;
+            background: rgba(99, 102, 241, 0.1); color: #818cf8;
+            font-size: 12px; font-weight: 600; border-radius: 20px;
+            border: 1px solid rgba(99, 102, 241, 0.2); margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        h1 { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 8px; }
+        p.desc { color: var(--text-muted); font-size: 14px; }
+
+        .form-group { margin-bottom: 24px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+
+        select, textarea, .file-drop-zone {
+            width: 100%; background: rgba(3, 7, 18, 0.6);
+            border: 1px solid var(--border); color: var(--text-main);
+            border-radius: 12px; font-size: 15px; transition: all 0.25s ease;
+        }
+
+        select { padding: 14px 16px; cursor: pointer; }
+        textarea { padding: 16px; height: 120px; resize: vertical; }
+
+        .file-drop-zone {
+            padding: 20px; text-align: center; cursor: pointer;
+            border: 2px dashed rgba(255, 255, 255, 0.12); position: relative; overflow: hidden;
+        }
+        .file-drop-zone input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .file-info { font-size: 14px; color: var(--text-muted); }
+        .file-info span { color: #818cf8; font-weight: 600; }
+
+        button.btn-primary {
+            width: 100%; padding: 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: white; border: none; border-radius: 12px;
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: 0.2s;
+        }
+        button.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        #status { text-align: center; margin-top: 20px; font-size: 14px; color: #fbbf24; font-weight: 500; }
+        .audio-container { margin-top: 24px; background: rgba(3, 7, 18, 0.4); border: 1px solid var(--border); padding: 16px; border-radius: 12px; display: none; }
+        audio { width: 100%; margin-top: 8px; accent-color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="header">
+            <span class="badge">Khmer & English AI</span>
+            <h1>Voice Cloning Studio</h1>
+            <p class="desc">Generate natural speech across languages using voice cloning.</p>
+        </div>
+
+        <form id="ttsForm">
+            <div class="form-group">
+                <label>Target Language</label>
+                <select id="language">
+                    <option value="km">🇰🇭 Khmer (ភាសាខ្មែរ)</option>
+                    <option value="en">🇺🇸 English</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Text Input</label>
+                <textarea id="text" placeholder="Type English text or Khmer Unicode script here... (e.g., សួស្តី សូមស្វាគមន៍)"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Reference Voice Sample (.wav, 10-20s)</label>
+                <div class="file-drop-zone">
+                    <input type="file" id="ref_audio" accept=".wav" onchange="updateFileName(this)">
+                    <p class="file-info" id="fileLabel">📁 Drop your reference audio or <span>browse</span></p>
+                </div>
+            </div>
+
+            <button type="button" class="btn-primary" onclick="generateVoice()">Generate Cloned Audio</button>
+        </form>
+
+        <p id="status"></p>
+
+        <div class="audio-container" id="audioWrapper">
+            <label style="margin-bottom: 6px;">Generated Audio Result</label>
+            <audio id="audioPlayer" controls></audio>
+        </div>
+    </div>
+
+    <script>
+        function updateFileName(input) {
+            const label = document.getElementById('fileLabel');
+            if (input.files && input.files[0]) {
+                label.innerHTML = `Selected: <span>${input.files[0].name}</span>`;
+            }
+        }
+
+        async function generateVoice() {
+            const status = document.getElementById('status');
+            const audioWrapper = document.getElementById('audioWrapper');
+            const player = document.getElementById('audioPlayer');
+            const text = document.getElementById('text').value;
+            const language = document.getElementById('language').value;
+            const audioFile = document.getElementById('ref_audio').files[0];
+
+            if (!text.trim() || !audioFile) {
+                alert("Please fill in the text and upload a reference .wav audio file.");
+                return;
+            }
+
+            status.innerText = "✨ Processing request and synthesizing voice...";
+            audioWrapper.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append("text", text);
+            formData.append("language", language);
+            formData.append("ref_audio", audioFile);
+
+            try {
+                let response = await fetch('http://127.0.0.1:8000/api/synthesize', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    let blob = await response.blob();
+                    player.src = URL.createObjectURL(blob);
+                    audioWrapper.style.display = 'block';
+                    status.innerText = "🚀 Success! Your audio is ready:";
+                } else {
+                    let errData = await response.json();
+                    status.innerText = "⚠️ Error: " + (errData.error || "Generation failed");
+                }
+            } catch (err) {
+                status.innerText = "❌ Connection error: Make sure your backend server is running.";
+            }
+        }
+    </script>
+</body>
+</html>
